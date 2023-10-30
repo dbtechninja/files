@@ -1,0 +1,34 @@
+How to resize UNDO and do we need to resize alway...ans is NO..WHY?
+
+--get undo retention in seconds
+show parameter undo 
+
+--get undo retention NOGUARANTEE/GUARANTEE
+select TABLESPACE_NAME,RETENTION from dba_tablespaces;
+
+--get expired/unexpirted/active block size in undo
+select owner,tablespace_name,sum(blocks)*8192/1024/1024/1024,status from dba_undo_extents group by owner,tablespace_name,status order by tablespace_name;
+
+--UNDO tablespace used
+select a.tablespace_name, SIZEMB, USAGEMB, (SIZEMB - USAGEMB) FREEMB
+from (select sum(bytes) / 1024 / 1024 SIZEMB, b.tablespace_name
+from dba_data_files a, dba_tablespaces b
+where a.tablespace_name = b.tablespace_name
+and b.contents = 'UNDO'
+group by b.tablespace_name) a,
+(select c.tablespace_name, sum(bytes) / 1024 / 1024 USAGEMB
+from DBA_UNDO_EXTENTS c
+where status <> 'EXPIRED'
+group by c.tablespace_name) b
+where a.tablespace_name = b.tablespace_name;
+
+--check UNDO usage by session
+select s.sid,s.serial#, NVL(s.username, 'NA') orauser, s.program,r.name undoseg, t.used_ublk * TO_NUMBER(x.value)/1024||'K' "Undo" from sys.v_$rollname r, sys.gv_$session s,
+sys.gv_$transaction t, sys.gv_$parameter x
+where s.taddr = t.addr AND r.usn = t.xidusn(+) AND x.name = 'db_block_size';
+
+--get tablespace name and datafile location 
+set pages 999 long 999 lines 999
+col TABLESPACE_NAME for a15
+col file_name for a40
+select tablespace_name,file_name,file_id,bytes/1024/1024 from dba_data_files order by 1;
