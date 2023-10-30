@@ -1,0 +1,24 @@
+How to check and kill blocking sessions in oracle DB
+
+
+--get list of blocking sessin in the DB
+set pages 4000 lines 1200
+col program format a25
+col event format a20
+col wait_class for a20
+col username for a10
+col osuser for a10
+col process for a10
+col seconds_in_wait for 99999999999
+select distinct program,inst_id,process,sid,serial#,sql_id,event,seconds_in_wait,blocking_session,osuser,username,wait_class from gv$session where status='ACTIVE' and seconds_in_wait >=1 and blocking_session is not null and wait_class <> 'Idle' order by seconds_in_wait
+/
+
+--get sql_text from sql_id 
+select sql_text from gv$sql where sql_id='7fp9fkzjnwr87';
+
+--get sql_id and sql_text of the blocking session
+select sid,serial#,sql_text,s.sql_id from gv$session s,gv$sql q where sid in (89) and (q.sql_id=s.sql_id or q.sql_id=s.prev_sql_id);
+
+
+--kill blocking session
+alter system kill session 'sid,serial#,inst_id' immediate;
